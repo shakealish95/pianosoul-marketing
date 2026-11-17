@@ -76,6 +76,10 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
 .tile .k{font-size:12px;color:var(--muted)}
 .tile .v{font-family:var(--display);font-size:20px;font-weight:500;font-variant-numeric:tabular-nums;margin-top:2px}
 .tile .d{font-size:12px;margin-top:2px;font-variant-numeric:tabular-nums}
+.seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{font:inherit;font-size:13px;padding:5px 10px;border:0;background:var(--bg);color:var(--muted);cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on{background:var(--accent);color:#fff}
 .up{color:var(--good)} .down{color:var(--bad)} .flat{color:var(--muted)}
 
 /* таблицы */
@@ -148,9 +152,12 @@ a{color:var(--accent)}
       <p class="note" id="task-note">Галочки сохраняются сразу в Google Таблицу и видны Алишеру.</p>
     </div>
     <div class="card" id="kpi-card">
-      <h2>Последние 7 дней</h2>
+      <div class="dayhead"><h2 id="kpi-title">Последние 7 дней</h2>
+        <div class="seg" role="group" aria-label="Период">
+          <button type="button" data-p="day">День</button><button type="button" data-p="7" class="on">7 дней</button><button type="button" data-p="14">14</button><button type="button" data-p="30">30</button>
+        </div></div>
       <div class="tiles" id="tiles"></div>
-      <p class="note">Стрелка — изменение к предыдущим 7 дням. Записи, приходы и продажи — по дате события в amoCRM, все источники.</p>
+      <p class="note" id="kpi-note">Стрелка — изменение к предыдущему такому же периоду. Записи, приходы и продажи — по дате события в amoCRM, все источники. «День» показывает дату, выбранную слева в задачах.</p>
     </div>
   </section>
 
@@ -221,7 +228,7 @@ function monday(s){return addDays(s,1-weekday(s))}
 function ddmm(s){return s.slice(8,10)+"."+s.slice(5,7)}
 function tasksFor(s){const w=weekday(s);if(w>5)return [];return DAILY.concat((WEEK[w]||[]).map(t=>Object.assign({t:"неделя",p:"wk"},t)))}
 
-let db=null, cfg={}, canWrite=true, daily=[], creatives=null, reels=[], checks={}, day=astanaToday(), writing=Promise.resolve();
+let period="7", db=null, cfg={}, canWrite=true, daily=[], creatives=null, reels=[], checks={}, day=astanaToday(), writing=Promise.resolve();
 const status=(msg)=>{const el=$("status");el.textContent=msg||"";el.hidden=!msg};
 
 /* ---------- задачи ---------- */
@@ -263,9 +270,13 @@ function toggle(id,val){
     .then(r=>r&&r.json?r.json():null).then(j=>{if(j&&j.error)throw new Error(j.error);status("")})
     .catch(()=>status("Отметка не сохранилась. Проверьте интернет и отметьте ещё раз."));
 }
-$("prev-day").addEventListener("click",()=>{day=addDays(day,-1);renderTasks()});
-$("next-day").addEventListener("click",()=>{day=addDays(day,1);renderTasks()});
-$("day").addEventListener("change",e=>{const v=e.target.value;if(v&&e.target.validity.valid){day=v;renderTasks()}});
+$("prev-day").addEventListener("click",()=>{day=addDays(day,-1);renderTasks();if(period==="day")renderTiles()});
+$("next-day").addEventListener("click",()=>{day=addDays(day,1);renderTasks();if(period==="day")renderTiles()});
+$("day").addEventListener("change",e=>{const v=e.target.value;if(v&&e.target.validity.valid){day=v;renderTasks();if(period==="day")renderTiles()}});
+document.querySelectorAll(".seg button").forEach(b=>b.addEventListener("click",()=>{period=b.dataset.p;
+  document.querySelectorAll(".seg button").forEach(x=>x.classList.toggle("on",x===b));
+  if(period==="day"&&day===astanaToday()&&daily.length&&daily[daily.length-1].date<day){day=daily[daily.length-1].date;renderTasks()}
+  renderTiles()}));
 $("day").addEventListener("blur",e=>{e.target.value=day});
 
 function completion(d){const ts=tasksFor(d);if(!ts.length)return null;const done=(checks[d]&&checks[d].done)||{};return ts.filter(t=>done[t.id]).length/ts.length}
@@ -276,13 +287,18 @@ function leadsT(r){return +r.leads_target||0} function leadsAll(r){return (+r.le
 function renderTiles(){
   const el=$("tiles"); el.textContent="";
   if(!daily.length){el.textContent="Нет данных.";return}
-  const last=daily[daily.length-1].date, from=addDays(last,-6), pfrom=addDays(last,-13), pto=addDays(last,-7);
-  const A=daily.filter(r=>r.date>=from), B=daily.filter(r=>r.date>=pfrom&&r.date<=pto);
+  let to,len;
+  if(period==="day"){to=day;len=1}else{to=daily[daily.length-1].date;len=+period}
+  const from=addDays(to,-(len-1)), pto=addDays(from,-1), pfrom=addDays(pto,-(len-1));
+  const A=daily.filter(r=>r.date>=from&&r.date<=to), B=daily.filter(r=>r.date>=pfrom&&r.date<=pto);
+  const prevName=len===1?"к предыдущему дню":"к прошлым "+len+" дн.";
+  $("kpi-title").textContent=len===1?(ddmm(to)+(to===astanaToday()?" (сегодня)":"")):("За "+len+" дней: "+ddmm(from)+"–"+ddmm(to));
+  if(!A.length){const p=document.createElement("p");p.className="meta";p.textContent=to>daily[daily.length-1].date?"Данных за этот день ещё нет: они обновляются вечером в 21:22.":"Нет данных за этот период.";el.appendChild(p);return}
   const m=(rows)=>{const s=sum(rows,"spend"),lt=rows.reduce((a,r)=>a+leadsT(r),0),la=rows.reduce((a,r)=>a+leadsAll(r),0),rec=sum(rows,"rec");
     const days=rows.map(r=>r.date), comp=days.map(completion).filter(v=>v!=null);
     return {spend:s,leads:la,cpl:div(s,lt),rec,cpr:div(s,rec),came:sum(rows,"came"),sale:sum(rows,"sale"),reels:sum(rows,"reels"),newads:sum(rows,"new_ads"),fol:sum(rows,"followers"),tasks:comp.length?comp.reduce((a,b)=>a+b,0)/comp.length:null}};
   const a=m(A), b=m(B);
-  const T=[["Расход","spend","$",0,1],["Лиды в amoCRM","leads","",0,1],["CPL таргета","cpl","$",2,-1],["Записи на пробный","rec","",0,1],["$ на запись","cpr","$",1,-1],["Пришли / продажи","came","",0,1],["Рилсы / новые креативы","reels","",0,1],["Задачи выполнены","tasks","%",0,1]];
+  const T=[["Расход","spend","$",0,0],["Лиды в amoCRM","leads","",0,1],["CPL таргета","cpl","$",2,-1],["Записи на пробный","rec","",0,1],["$ на запись","cpr","$",1,-1],["Пришли / продажи","came","",0,1],["Рилсы / новые креативы","reels","",0,1],["Задачи выполнены","tasks","%",0,1]];
   T.forEach(([k,f,u,d,good])=>{
     const t=document.createElement("div");t.className="tile";
     const kk=document.createElement("div");kk.className="k";kk.textContent=k;
@@ -295,7 +311,7 @@ function renderTiles(){
     const dd=document.createElement("div");dd.className="d";
     const pv=b[f];
     if(val!=null&&pv!=null&&pv!==0&&B.length){const ch=(val-pv)/Math.abs(pv);const better=ch*good>0.02,worse=ch*good<-0.02;
-      dd.className="d "+(better?"up":worse?"down":"flat");dd.textContent=(ch>0?"▲ ":ch<0?"▼ ":"")+fmt(Math.abs(ch)*100,0)+"% к прошлым 7 дням"}
+      dd.className="d "+(better?"up":worse?"down":"flat");dd.textContent=(ch>0?"▲ ":ch<0?"▼ ":"")+fmt(Math.abs(ch)*100,0)+"% "+prevName}
     else dd.textContent=" ";
     t.append(kk,v,dd);el.appendChild(t);
   });
