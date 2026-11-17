@@ -109,6 +109,7 @@ th{font-weight:600;color:var(--muted);font-size:12px}
 th:first-child,td:first-child{text-align:left}
 td.wrap{white-space:normal;min-width:200px;text-align:left}
 tbody tr:hover{background:var(--bg)}
+tr.sel td{background:var(--accent-soft)}
 .chip{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:99px}
 .chip.good{background:var(--good-soft);color:var(--good)}
 .chip.warn{background:var(--warn-soft);color:var(--warn)}
@@ -199,14 +200,14 @@ a{color:var(--accent)}
   <section class="card" id="sales">
     <div class="dayhead"><h2 id="sales-title">Продажи</h2>
       <div class="daynav"><div class="seg" role="group" aria-label="Вид"><button type="button" data-v="month" class="on">Месяц</button><button type="button" data-v="week">Недели</button></div>
-        <select class="inp" id="sales-month" aria-label="Месяц"></select></div></div>
+        <select class="inp" id="sales-month" aria-label="Месяц"></select><select class="inp" id="sales-week" aria-label="Неделя" hidden></select></div></div>
     <div class="tiles four" id="sales-tiles"></div>
     <div class="charts" style="margin-top:16px">
       <div><h3 class="h3" id="rev-title">Выручка с начала месяца, млн ₸</h3><div class="chart" id="ch-rev"></div>
         <div class="legend"><span><b style="background:var(--accent)"></b><span id="lg-fact">Факт по дням</span></span><span><b style="background:var(--good)"></b><span id="lg-plan">Темп к плану</span></span></div></div>
       <div><h3 class="h3" id="fun-title">Воронка школы за месяц</h3><div id="sales-funnel"></div></div>
     </div>
-    <div id="sales-weeks-wrap" hidden><h3 class="h3" style="margin-top:16px">Школа по неделям</h3>
+    <div id="sales-weeks-wrap" hidden><h3 class="h3" style="margin-top:16px">Школа по неделям <span class="meta">— нажмите на неделю, чтобы открыть её</span></h3>
       <div class="scroll"><table id="sales-weeks"></table></div></div>
     <h3 class="h3" style="margin-top:16px" id="mgr-title">Менеджеры</h3>
     <div class="scroll"><table id="mgr-table"></table></div>
@@ -468,6 +469,7 @@ function bars(el,data,opt){
       if(opt.stack){y=m.t+ih-ih*(acc+v)/nice;acc+=v}else{w=gw/d.vals.length;x=x0+j*w;y=m.t+ih-h}
       mk("rect",{x:x,y:y,width:Math.max(1,w-1),height:Math.max(0,h),rx:2,fill:cols[j]})});
     const hit=mk("rect",{x:m.l+i*bw,y:m.t,width:bw,height:ih,fill:"transparent"});
+    if(opt.onPick){hit.style.cursor="pointer";hit.addEventListener("click",()=>opt.onPick(i))}
     const show=()=>{tip.textContent=d.tip;tip.style.left=((m.l+i*bw+bw/2)/W*100)+"%";tip.style.top=(m.t+10)+"px";tip.classList.add("on")};
     hit.addEventListener("mouseenter",show);hit.addEventListener("touchstart",show,{passive:true});hit.addEventListener("mouseleave",()=>tip.classList.remove("on"));
     if(i%every===0||i===n-1){const tx=mk("text",{x:m.l+i*bw+bw/2,y:H-6,"text-anchor":"middle","font-size":11,fill:css("--muted")});tx.textContent=d.x}
@@ -594,13 +596,13 @@ function renderSalesMonth(){
   t.appendChild(tb);
 }
 
-let smode="month";
+let smode="month", sweek=null;
 document.querySelectorAll("#sales .seg button").forEach(b=>b.addEventListener("click",()=>{smode=b.dataset.v;
   document.querySelectorAll("#sales .seg button").forEach(x=>x.classList.toggle("on",x===b));renderSales()}));
 function dayPlan(ds,who,metric){const m=ds.slice(0,7),p=planOf(m,who,metric);if(p==null)return null;return p/monthInfo(m).n}
 function renderSales(){
   const weekMode=smode==="week";
-  $("sales-month").hidden=weekMode;$("sales-weeks-wrap").hidden=!weekMode;
+  $("sales-month").hidden=weekMode;$("sales-week").hidden=!weekMode;$("sales-weeks-wrap").hidden=!weekMode;
   if(!weekMode)return renderSalesMonth();
   const box=$("sales-tiles");box.textContent="";
   if(!sales||!sales.school||!sales.school.length){box.textContent="Данных по продажам пока нет.";return}
@@ -608,7 +610,13 @@ function renderSales(){
   const today=astanaToday();
   const S=sales.school.filter(r=>r.date<=today), W={};
   S.forEach(r=>{const w=monday(r.date);(W[w]=W[w]||[]).push(r)});
-  const weeks=Object.keys(W).sort().slice(-8);
+  const allWeeks=Object.keys(W).sort();
+  const wsel=$("sales-week");
+  if(wsel.options.length!==allWeeks.length){wsel.textContent="";allWeeks.slice().reverse().forEach(w=>{const o=document.createElement("option");o.value=w;o.textContent=ddmm(w)+"–"+ddmm(addDays(w,6))+(w===monday(today)?" (текущая)":"");wsel.appendChild(o)});
+    if(!wsel.dataset.bound){wsel.addEventListener("change",()=>{sweek=wsel.value;renderSales()});wsel.dataset.bound="1"}}
+  if(!sweek||!allWeeks.includes(sweek))sweek=allWeeks[allWeeks.length-1];
+  wsel.value=sweek;
+  const idx=allWeeks.indexOf(sweek), weeks=allWeeks.slice(Math.max(0,idx-7),idx+1);
   const agg=w=>{const R=W[w],q=k=>R.reduce((a,r)=>a+(+r[k]||0),0);
     const plan=k=>{let t=0,any=false;for(let i=0;i<7;i++){const ds=addDays(w,i);if(ds>today)break;const p=dayPlan(ds,"Школа",k);if(p!=null){t+=p;any=true}}return any?t:null};
     const calls=(sales.calls||[]).filter(c=>c.date>=w&&c.date<=addDays(w,6));const cq=k=>calls.reduce((a,c)=>a+(+c[k]||0),0);
@@ -617,21 +625,22 @@ function renderSales(){
   const A=weeks.map(agg), cur=A[A.length-1], prev=A[A.length-2];
   const wlabel=x=>ddmm(x.w)+"–"+ddmm(addDays(x.w,6));
   $("sales-title").textContent="Продажи · неделя "+wlabel(cur)+(cur.days<7?" (прошло "+cur.days+" дн.)":"");
+  const prevName=prev?"прошлая ("+ddmm(prev.w)+")":"прошлая";
   const tile=(k,v,sub,cls)=>{const t=el("div","tile");t.append(el("div","k",k),el("div","v",v),el("div","d "+(cls||"flat"),sub||" "));box.appendChild(t)};
   const vs=(f,p)=>p?[fmt(f/p*100)+"% плана недели",f/p>=0.95?"up":f/p>=0.8?"flat":"down"]:["плана нет","flat"];
-  const dlt=(a,b)=>b?" · "+(a>=b?"▲ ":"▼ ")+fmt(Math.abs(a-b)/b*100)+"% к прошлой":"";
+  const dlt=(a,b)=>b?" · "+(a>=b?"▲ ":"▼ ")+fmt(Math.abs(a-b)/b*100)+"% к прошлой неделе":"";
   let x=vs(cur.rev,cur.prev);tile("Выручка",mln(cur.rev),x[0]+dlt(cur.rev,prev&&prev.rev),x[1]);
   x=vs(cur.sal,cur.psal);tile("Новые продажи",fmt(cur.sal)+(cur.psal?" из "+fmt(cur.psal):""),x[0],x[1]);
   x=vs(cur.rec,cur.prec);tile("Записи на ПУ",fmt(cur.rec)+(cur.prec?" из "+fmt(cur.prec):""),x[0],x[1]);
   x=vs(cur.held,cur.pheld);tile("Проведено ПУ",fmt(cur.held)+(cur.pheld?" из "+fmt(cur.pheld):""),x[0],x[1]);
-  tile("Средний чек",cur.sal?money(cur.rev/cur.sal):"—",prev&&prev.sal?"прошлая: "+money(prev.rev/prev.sal):"выручка / продажи");
-  tile("Явка на ПУ",cur.rec?pct(cur.held/cur.rec):"—",prev&&prev.rec?"прошлая: "+pct(prev.held/prev.rec):"проведено / записалось");
-  tile("ПУ → продажа",cur.held?pct(cur.sal/cur.held):"—",prev&&prev.held?"прошлая: "+pct(prev.sal/prev.held):"продажи / проведено");
+  tile("Средний чек",cur.sal?money(cur.rev/cur.sal):"—",prev&&prev.sal?prevName+": "+money(prev.rev/prev.sal):"выручка / продажи");
+  tile("Явка на ПУ",cur.rec?pct(cur.held/cur.rec):"—",prev&&prev.rec?prevName+": "+pct(prev.held/prev.rec):"проведено / записалось");
+  tile("ПУ → продажа",cur.held?pct(cur.sal/cur.held):"—",prev&&prev.held?prevName+": "+pct(prev.sal/prev.held):"продажи / проведено");
   tile("Звонки отдела",cur.hasCalls?fmt(cur.dials)+" / "+fmt(cur.conn):"—",cur.hasCalls?"наборы / дозвоны · пропущено "+fmt(cur.missed):"нет данных за неделю",cur.missed?"down":"flat");
   // график по неделям
   $("rev-title").textContent="Выручка по неделям, млн ₸";$("lg-fact").textContent="Факт за неделю";$("lg-plan").textContent="План недели (текущая — на сегодня)";
   const d=A.map(z=>({x:ddmm(z.w),vals:[z.rev/1e6],tip:wlabel(z)+": "+mln(z.rev)+(z.prev?" · план "+mln(z.prev):"")+(z.days<7?" · неделя не полная":"")}));
-  bars($("ch-rev"),d,{colors:["--accent"],label:"Выручка по неделям",max:Math.max(...A.map(z=>(z.prev||0)/1e6)),fmtTick:v=>fmt(v,1),line:A.map(z=>z.prev!=null?z.prev/1e6:null),labels:q=>fmt(q.vals[0],1)});
+  bars($("ch-rev"),d,{colors:["--accent"],label:"Выручка по неделям",onPick:i=>{sweek=A[i].w;renderSales()},dim:d.length-1,max:Math.max(...A.map(z=>(z.prev||0)/1e6)),fmtTick:v=>fmt(v,1),line:A.map(z=>z.prev!=null?z.prev/1e6:null),labels:q=>fmt(q.vals[0],1)});
   // воронка текущей недели
   $("fun-title").textContent="Воронка за неделю "+wlabel(cur);
   const f=$("sales-funnel");f.textContent="";const wrap=el("div","fun");
@@ -644,7 +653,7 @@ function renderSales(){
   const H=["Неделя","Выручка","План","% плана","Продажи","Записи","Проведено","Ср. чек","Явка","ПУ→продажа"];
   const th=document.createElement("thead"),tr=document.createElement("tr");H.forEach(h=>tr.appendChild(el("th",null,h)));th.appendChild(tr);t.appendChild(th);
   const tb=document.createElement("tbody");
-  A.slice().reverse().forEach(z=>{const r=document.createElement("tr");r.appendChild(el("td",null,wlabel(z)+(z.days<7?" ("+z.days+" дн.)":"")));
+  allWeeks.slice(-12).map(agg).reverse().forEach(z=>{const r=document.createElement("tr");r.style.cursor="pointer";if(z.w===sweek)r.className="sel";r.title="Показать эту неделю";r.addEventListener("click",()=>{sweek=z.w;renderSales();$("sales").scrollIntoView({behavior:"smooth"})});r.appendChild(el("td",null,wlabel(z)+(z.days<7?" ("+z.days+" дн.)":"")));
     [money(z.rev),money(z.prev)].forEach(v=>r.appendChild(el("td",null,v)));
     const pc=el("td");if(z.prev){const p=z.rev/z.prev;pc.appendChild(el("span","chip "+(p>=0.95?"good":p>=0.8?"warn":"bad"),pct(p)))}else pc.textContent="—";r.appendChild(pc);
     [fmt(z.sal),fmt(z.rec),fmt(z.held),z.sal?money(z.rev/z.sal):"—",z.rec?pct(z.held/z.rec):"—",z.held?pct(z.sal/z.held):"—"].forEach(v=>r.appendChild(el("td",null,v)));
