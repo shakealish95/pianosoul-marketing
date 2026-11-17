@@ -62,13 +62,23 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
 .task:first-of-type{border-top:0}
 .task input{width:18px;height:18px;margin:1px 0 0;accent-color:var(--accent);cursor:pointer}
 .task label{cursor:pointer}
+.task .right{display:flex;gap:6px;align-items:center}
+.del{border:0;background:none;color:var(--muted);font-size:18px;line-height:1;cursor:pointer;padding:0 4px;border-radius:6px}
+.del:hover{color:var(--bad);background:var(--bad-soft)}
+.inp{font:inherit;font-size:14px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);min-width:0}
+.addrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.addrow .inp{flex:1 1 180px}
+.erow{display:flex;gap:6px;align-items:center;padding:4px 0}
+.erow .time{width:84px;flex:none}.erow .grow{flex:1 1 auto}
+.btn{font:inherit;font-size:14px;font-weight:600;padding:7px 14px;border:0;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+.btn.ghost{background:var(--bg);color:var(--ink);border:1px solid var(--line);font-weight:500;margin-top:6px}
 .task .t{font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px;padding-top:1px}
 .task.done label{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--line)}
 .pill{font-size:11px;font-weight:600;padding:2px 7px;border-radius:99px;white-space:nowrap}
 .pill.ps{background:var(--accent-soft);color:var(--accent)}
 .pill.yq{background:var(--org-soft);color:var(--org)}
 .pill.wk{background:var(--warn-soft);color:var(--warn)}
-@media (max-width:460px){.task{grid-template-columns:22px 1fr auto}.task .t{display:none}}
+@media (max-width:460px){.task{grid-template-columns:22px 1fr auto}.task .t{display:none}.erow{flex-wrap:wrap}.erow .grow{flex-basis:100%;order:-1}}
 
 /* цифры */
 .tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
@@ -141,6 +151,7 @@ a{color:var(--accent)}
       <div class="dayhead">
         <h2 id="day-title">Задачи дня</h2>
         <div class="daynav">
+          <button type="button" id="edit-tasks" hidden>Изменить список</button>
           <button type="button" id="prev-day" aria-label="Предыдущий день">←</button>
           <input type="date" id="day" aria-label="Дата">
           <button type="button" id="next-day" aria-label="Следующий день">→</button>
@@ -226,50 +237,119 @@ function addDays(s,k){const d=new Date(s+"T00:00:00Z");d.setUTCDate(d.getUTCDate
 function weekday(s){const w=new Date(s+"T00:00:00Z").getUTCDay();return w===0?7:w}
 function monday(s){return addDays(s,1-weekday(s))}
 function ddmm(s){return s.slice(8,10)+"."+s.slice(5,7)}
-function tasksFor(s){const w=weekday(s);if(w>5)return [];return DAILY.concat((WEEK[w]||[]).map(t=>Object.assign({t:"неделя",p:"wk"},t)))}
+let tpl=null, editing=null;
+const WD=["","понедельник","вторник","среда","четверг","пятница","суббота","воскресенье"];
+function T(){return tpl||{daily:DAILY,week:WEEK}}
+function baseTasks(s){const w=weekday(s);if(w>5)return [];const t=T();return t.daily.concat(((t.week||{})[w]||[]).map(x=>Object.assign({t:"неделя",p:"wk"},x)))}
+function extrasOf(s){return ((checks[s]&&checks[s].extra)||[]).map(x=>Object.assign({p:"all"},x,{t:"доп.",extra:true}))}
+function tasksFor(s){return baseTasks(s).concat(extrasOf(s))}
+function newId(){return "x"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)}
 
 let period="7", db=null, cfg={}, canWrite=true, daily=[], creatives=null, reels=[], checks={}, day=astanaToday(), writing=Promise.resolve();
 const status=(msg)=>{const el=$("status");el.textContent=msg||"";el.hidden=!msg};
+function post(obj,errMsg){
+  const body=JSON.stringify(Object.assign({token:cfg.apps_token},obj));
+  writing=writing.then(()=>fetch(cfg.apps_url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body}))
+    .then(r=>r&&r.json?r.json():null).then(j=>{if(j&&j.error)throw new Error(j.error);status("")})
+    .catch(()=>status(errMsg));
+}
+function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
+function projSelect(val,id){const s=el("select","inp");if(id)s.id=id;[["all","Общая"],["ps","PianoSoul"],["yq","Yqylas"]].forEach(([v,t])=>{const o=el("option",null,t);o.value=v;if(v===val)o.selected=true;s.appendChild(o)});return s}
 
 /* ---------- задачи ---------- */
 function renderTasks(){
   $("day").value=day;
-  const w=weekday(day), names=["","понедельник","вторник","среда","четверг","пятница","суббота","воскресенье"];
-  $("day-title").textContent=(day===astanaToday()?"Сегодня, ":"")+ddmm(day)+", "+names[w];
+  $("day-title").textContent=(day===astanaToday()?"Сегодня, ":"")+ddmm(day)+", "+WD[weekday(day)];
+  const editBtn=$("edit-tasks");editBtn.hidden=!db||!canWrite;editBtn.textContent=editing?"Отменить":"Изменить список";
+  if(editing){renderEditor();return}
   const list=$("task-list"); list.textContent="";
   const ts=tasksFor(day), done=(checks[day]&&checks[day].done)||{};
-  if(!ts.length){const p=document.createElement("p");p.className="meta";p.textContent="Выходной — задач нет.";list.appendChild(p)}
+  if(!ts.length){list.appendChild(el("p","meta",weekday(day)>5?"Выходной — задач нет. Можно добавить допзадачу ниже.":"Задач нет."))}
   let lastGroup=null;
   ts.forEach(t=>{
-    const g=t.p==="wk"?"Задачи недели":"Каждый день";
-    if(g!==lastGroup){const h=document.createElement("div");h.className="group";h.textContent=g;list.appendChild(h);lastGroup=g}
-    const row=document.createElement("div");row.className="task"+(done[t.id]?" done":"");
+    const g=t.extra?"Допзадачи":t.p==="wk"?"Задачи недели":"Каждый день";
+    if(g!==lastGroup){list.appendChild(el("div","group",g));lastGroup=g}
+    const row=el("div","task"+(done[t.id]?" done":""));
     const cb=document.createElement("input");cb.type="checkbox";cb.id="task-"+t.id;cb.checked=!!done[t.id];cb.disabled=!db||!canWrite;
     cb.addEventListener("change",()=>toggle(t.id,cb.checked));
-    const tm=document.createElement("span");tm.className="t";tm.textContent=t.t;
-    const lb=document.createElement("label");lb.htmlFor=cb.id;lb.textContent=t.x;
-    const pl=document.createElement("span");
+    const lb=el("label",null,t.x);lb.htmlFor=cb.id;
+    const right=el("span","right");
     const pp=t.p==="wk"?["неделя","wk"]:PILL[t.p];
-    if(pp){pl.className="pill "+pp[1];pl.textContent=pp[0]}
-    row.append(cb,tm,lb,pl);list.appendChild(row);
+    if(pp)right.appendChild(el("span","pill "+pp[1],pp[0]));
+    if(t.extra&&db&&canWrite){const x=el("button","del","×");x.type="button";x.title="Удалить допзадачу";x.setAttribute("aria-label","Удалить: "+t.x);x.addEventListener("click",()=>removeExtra(t.id));right.appendChild(x)}
+    row.append(cb,el("span","t",t.t||""),lb,right);list.appendChild(row);
   });
+  if(db&&canWrite){
+    const f=el("form","addrow");f.id="add-form";
+    const inp=el("input","inp");inp.id="add-text";inp.placeholder="Допзадача на этот день";inp.maxLength=140;inp.setAttribute("aria-label","Текст допзадачи");
+    const btn=el("button","btn","Добавить");btn.type="submit";
+    f.append(inp,projSelect("all","add-proj"),btn);
+    f.addEventListener("submit",e=>{e.preventDefault();const x=inp.value.trim();if(!x)return;addExtra(x,$("add-proj").value)});
+    list.appendChild(f);
+  }
   const n=ts.filter(t=>done[t.id]).length;
   $("day-progress").style.width=ts.length?(100*n/ts.length)+"%":"0";
   $("day-progress-text").textContent=ts.length?("Выполнено "+n+" из "+ts.length):"—";
   if(!db) $("task-note").textContent="Галочки пока не подключены: нужен адрес Google Таблицы для отметок.";
-  else if(!canWrite) $("task-note").textContent="У вас доступ только на просмотр — отмечать задачи может маркетолог.";
-  else $("task-note").textContent="Галочки сохраняются сразу в Google Таблицу и видны Алишеру.";
+  else $("task-note").textContent="Галочки и допзадачи сохраняются сразу в Google Таблицу и видны Алишеру.";
 }
+function saveDay(d){
+  const ts=tasksFor(d), cur=(checks[d]&&checks[d].done)||{}, extra=(checks[d]&&checks[d].extra)||[];
+  const doneT=ts.filter(t=>cur[t.id]);
+  post({date:d,done:cur,extra:extra,total:ts.length,count:doneT.length,names:doneT.map(t=>t.x)},"Изменение не сохранилось. Проверьте интернет и повторите.");
+}
+function refreshAfter(){renderTasks();renderTaskChart();renderWeeks();renderTiles()}
 function toggle(id,val){
   const d=day, cur=Object.assign({},(checks[d]&&checks[d].done)||{});
   if(val) cur[id]=true; else delete cur[id];
   checks[d]=Object.assign({},checks[d]||{},{done:cur});
-  renderTasks(); renderTaskChart(); renderWeeks(); renderTiles();
-  const body=JSON.stringify({token:cfg.apps_token,date:d,done:cur,total:tasksFor(d).length,names:tasksFor(d).filter(t=>cur[t.id]).map(t=>t.x)});
-  writing=writing.then(()=>fetch(cfg.apps_url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body}))
-    .then(r=>r&&r.json?r.json():null).then(j=>{if(j&&j.error)throw new Error(j.error);status("")})
-    .catch(()=>status("Отметка не сохранилась. Проверьте интернет и отметьте ещё раз."));
+  refreshAfter(); saveDay(d);
 }
+function addExtra(x,p){
+  const d=day, ex=((checks[d]&&checks[d].extra)||[]).concat([{id:newId(),x:x,p:p}]);
+  checks[d]=Object.assign({},checks[d]||{},{extra:ex});
+  refreshAfter(); const i=$("add-text");if(i)i.focus(); saveDay(d);
+}
+function removeExtra(id){
+  const d=day, ex=((checks[d]&&checks[d].extra)||[]).filter(t=>t.id!==id), cur=Object.assign({},(checks[d]&&checks[d].done)||{});
+  delete cur[id];
+  checks[d]=Object.assign({},checks[d]||{},{extra:ex,done:cur});
+  refreshAfter(); saveDay(d);
+}
+
+/* ---------- редактор общего списка ---------- */
+function startEdit(){const t=T();editing={daily:t.daily.map(x=>Object.assign({},x)),week:{}};for(let i=1;i<=5;i++)editing.week[i]=((t.week||{})[i]||[]).map(x=>Object.assign({},x));renderTasks()}
+function renderEditor(){
+  const list=$("task-list"); list.textContent="";
+  list.appendChild(el("p","meta","Это общий список: изменения применятся ко всем дням. Разовые задачи добавляйте как допзадачи."));
+  const section=(title,arr,withTime,withProj)=>{
+    list.appendChild(el("div","group",title));
+    arr.forEach((t,i)=>{
+      const row=el("div","erow");
+      if(withTime){const tm=el("input","inp time");tm.value=t.t||"";tm.placeholder="время";tm.setAttribute("aria-label","Время");tm.addEventListener("input",()=>{t.t=tm.value});row.appendChild(tm)}
+      const tx=el("input","inp grow");tx.value=t.x;tx.setAttribute("aria-label","Задача");tx.addEventListener("input",()=>{t.x=tx.value});row.appendChild(tx);
+      if(withProj){const ps=projSelect(t.p||"all");ps.setAttribute("aria-label","Проект");ps.addEventListener("change",()=>{t.p=ps.value});row.appendChild(ps)}
+      const del=el("button","del","×");del.type="button";del.title="Удалить";del.setAttribute("aria-label","Удалить: "+t.x);del.addEventListener("click",()=>{arr.splice(i,1);renderEditor()});row.appendChild(del);
+      list.appendChild(row);
+    });
+    const add=el("button","btn ghost","+ Добавить задачу");add.type="button";add.addEventListener("click",()=>{arr.push(withProj?{id:newId(),t:"",x:"",p:"all"}:{id:newId(),x:""});renderEditor();const ins=list.querySelectorAll(".erow input.grow");if(ins.length)ins[ins.length-1].focus()});
+    list.appendChild(add);
+  };
+  section("Каждый день",editing.daily,true,true);
+  const w=weekday(day)<=5?weekday(day):1;
+  section("Задачи недели — "+WD[w],editing.week[w],false,false);
+  const bar=el("div","addrow");
+  const save=el("button","btn","Сохранить список");save.type="button";
+  save.addEventListener("click",()=>{
+    const clean=a=>a.filter(t=>(t.x||"").trim()).map(t=>Object.assign({},t,{x:t.x.trim(),t:(t.t||"").trim()}));
+    const nt={daily:clean(editing.daily),week:{}};for(let i=1;i<=5;i++){const c=clean(editing.week[i]).map(t=>({id:t.id,x:t.x}));if(c.length)nt.week[i]=c}
+    tpl=nt;editing=null;refreshAfter();post({action:"template",template:nt},"Список задач не сохранился. Проверьте интернет и сохраните ещё раз.");
+  });
+  const cancel=el("button","btn ghost","Отмена");cancel.type="button";cancel.addEventListener("click",()=>{editing=null;renderTasks()});
+  bar.append(save,cancel);list.appendChild(bar);
+  $("day-progress-text").textContent="Редактирование списка";
+}
+$("edit-tasks").addEventListener("click",()=>{if(editing){editing=null;renderTasks()}else startEdit()});
 $("prev-day").addEventListener("click",()=>{day=addDays(day,-1);renderTasks();if(period==="day")renderTiles()});
 $("next-day").addEventListener("click",()=>{day=addDays(day,1);renderTasks();if(period==="day")renderTiles()});
 $("day").addEventListener("change",e=>{const v=e.target.value;if(v&&e.target.validity.valid){day=v;renderTasks();if(period==="day")renderTiles()}});
@@ -441,7 +521,7 @@ async function decrypt(pw){
 async function loadChecks(){
   if(!cfg.apps_url){db=null;renderTasks();return}
   try{const r=await fetch(cfg.apps_url+"?token="+encodeURIComponent(cfg.apps_token)+"&t="+Date.now());const j=await r.json();
-    if(j.error)throw new Error(j.error);checks=j.checks||{};db=true;canWrite=true;status("")}
+    if(j.error)throw new Error(j.error);checks=j.checks||{};tpl=j.template&&Array.isArray(j.template.daily)?j.template:null;db=true;canWrite=true;status("")}
   catch(e){db=null;status("Не удалось загрузить отметки задач из Google Таблицы. Обновите страницу позже.")}
   renderTasks();renderTaskChart();renderTiles();renderWeeks();
 }
