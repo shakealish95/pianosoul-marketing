@@ -90,6 +90,15 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
 .seg button{font:inherit;font-size:13px;padding:5px 10px;border:0;background:var(--bg);color:var(--muted);cursor:pointer}
 .seg button+button{border-left:1px solid var(--line)}
 .seg button.on{background:var(--accent);color:#fff}
+.tiles.four{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:760px){.tiles.four{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.h3{font-size:14px;font-weight:600;margin:0 0 8px;color:var(--muted)}
+.fun{display:grid;gap:8px}
+.fun .r{display:grid;grid-template-columns:140px 1fr 70px;gap:8px;align-items:center;font-size:13px}
+.fun .bar{height:22px;border-radius:6px;background:var(--accent-soft);position:relative;overflow:hidden}
+.fun .bar i{position:absolute;inset:0 auto 0 0;background:var(--accent);border-radius:6px}
+.fun .cr{color:var(--muted);font-variant-numeric:tabular-nums;text-align:right}
+@media (max-width:460px){.fun .r{grid-template-columns:100px 1fr 56px}}
 .up{color:var(--good)} .down{color:var(--bad)} .flat{color:var(--muted)}
 
 /* таблицы */
@@ -185,6 +194,20 @@ a{color:var(--accent)}
     <div class="card"><h2>Выполнение задач по дням</h2><div class="chart" id="ch-tasks"></div></div>
     <div class="card"><h2>Рилсы и новые креативы по неделям</h2><div class="chart" id="ch-content"></div>
       <div class="legend"><span><b style="background:var(--accent)"></b>Рилсы</span><span><b style="background:var(--org)"></b>Новые креативы</span></div></div>
+  </section>
+
+  <section class="card" id="sales">
+    <div class="dayhead"><h2 id="sales-title">Продажи</h2>
+      <div class="daynav"><select class="inp" id="sales-month" aria-label="Месяц"></select></div></div>
+    <div class="tiles four" id="sales-tiles"></div>
+    <div class="charts" style="margin-top:16px">
+      <div><h3 class="h3">Выручка с начала месяца, млн ₸</h3><div class="chart" id="ch-rev"></div>
+        <div class="legend"><span><b style="background:var(--accent)"></b>Факт по дням</span><span><b style="background:var(--good)"></b>Темп к плану</span></div></div>
+      <div><h3 class="h3">Воронка школы за месяц</h3><div id="sales-funnel"></div></div>
+    </div>
+    <h3 class="h3" style="margin-top:16px">Менеджеры</h3>
+    <div class="scroll"><table id="mgr-table"></table></div>
+    <p class="note">Источник: РНП 2026 (Google Таблица) и звонки из amoCRM. Темп — какая доля плана должна быть выполнена к этому дню месяца.</p>
   </section>
 
   <section class="card" id="creatives">
@@ -447,6 +470,8 @@ function bars(el,data,opt){
     if(i%every===0||i===n-1){const tx=mk("text",{x:m.l+i*bw+bw/2,y:H-6,"text-anchor":"middle","font-size":11,fill:css("--muted")});tx.textContent=d.x}
     if(opt.labels){const tot=d.vals.reduce((a,b)=>a+(b||0),0);if(tot){const tx=mk("text",{x:m.l+i*bw+bw/2,y:m.t+ih-ih*(opt.stack?tot:Math.max(...d.vals))/nice-4,"text-anchor":"middle","font-size":11,fill:css("--ink")});tx.textContent=opt.labels(d)}}
   });
+  if(opt.line){const pts=opt.line.map((v,i)=>v==null?null:[m.l+i*bw+bw/2,m.t+ih-ih*v/nice]).filter(Boolean);
+    if(pts.length>1)mk("polyline",{points:pts.map(p=>p.join(",")).join(" "),fill:"none",stroke:css("--good"),"stroke-width":2,"stroke-dasharray":"5 4"})}
   el.insertBefore(svg,tip);
 }
 function niceMax(v){const p=Math.pow(10,Math.floor(Math.log10(v)));const f=v/p;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*p}
@@ -503,7 +528,69 @@ function renderReels(){
   t.appendChild(tb);
 }
 
-function renderAll(){renderTasks();renderTiles();renderWeeks();renderLeadsChart();renderRecChart();renderTaskChart();renderContentChart();renderCreatives();renderReels()}
+
+/* ---------- продажи ---------- */
+let sales=null, smonth=null;
+const money=v=>v==null||!isFinite(v)?"—":fmt(v)+" ₸";
+const mln=v=>v==null||!isFinite(v)?"—":fmt(v/1e6,1)+" млн ₸";
+function salesMonths(){return [...new Set((sales.school||[]).map(r=>r.date.slice(0,7)))].sort().reverse()}
+function planOf(m,who,metric){const p=(sales.plan||[]).find(x=>x.month===m&&x.manager===who&&x.metric===metric);return p?p.plan:null}
+function monthInfo(m){const [y,mo]=m.split("-").map(Number);const n=new Date(Date.UTC(y,mo,0)).getUTCDate();const t=astanaToday();
+  const elapsed=t.slice(0,7)===m?Math.max(0,+t.slice(8,10)-1):(t.slice(0,7)>m?n:0);return {n,elapsed,pace:elapsed/n}}
+function renderSales(){
+  const box=$("sales-tiles");box.textContent="";
+  if(!sales||!sales.school||!sales.school.length){box.textContent="Данных по продажам пока нет.";return}
+  const sel=$("sales-month");
+  if(!sel.options.length){salesMonths().forEach(m=>{const o=document.createElement("option");o.value=m;
+    o.textContent=new Date(m+"-01T00:00:00Z").toLocaleDateString("ru-RU",{month:"long",year:"numeric",timeZone:"UTC"});sel.appendChild(o)});
+    smonth=sel.value;sel.addEventListener("change",()=>{smonth=sel.value;renderSales()})}
+  const m=smonth, S=sales.school.filter(r=>r.date.startsWith(m)), M=sales.mgr.filter(r=>r.date.startsWith(m)), I=monthInfo(m);
+  const sm=k=>S.reduce((a,r)=>a+(+r[k]||0),0);
+  const rev=sm("revenue"), sal=sm("sales"), rec=sm("records"), held=sm("held"), paid=sm("paid"), ren=sm("renewals"), refund=sm("refund");
+  const pr=planOf(m,"Школа","revenue"), ps=planOf(m,"Школа","sales"), prc=planOf(m,"Школа","records"), ph=planOf(m,"Школа","held");
+  const calls=(sales.calls||[]).filter(c=>c.date.startsWith(m)), cs=k=>calls.reduce((a,c)=>a+(+c[k]||0),0);
+  $("sales-title").textContent="Продажи · прошло "+I.elapsed+" из "+I.n+" дн. ("+fmt(I.pace*100)+"%)";
+  const tile=(k,v,sub,cls)=>{const t=el("div","tile");t.append(el("div","k",k),el("div","v",v));const d=el("div","d "+(cls||"flat"),sub||" ");t.appendChild(d);box.appendChild(t)};
+  const vsPlan=(f,p)=>{if(!p)return ["плана нет","flat"];const r=f/p;return [fmt(r*100)+"% плана · темп "+fmt(I.pace*100)+"%", r>=I.pace*0.95?"up":r>=I.pace*0.8?"flat":"down"]};
+  let x=vsPlan(rev,pr);tile("Выручка",mln(rev),x[0],x[1]);
+  x=vsPlan(sal,ps);tile("Новые продажи",fmt(sal)+(ps?" из "+fmt(ps):""),x[0],x[1]);
+  x=vsPlan(rec,prc);tile("Записи на ПУ",fmt(rec)+(prc?" из "+fmt(prc):""),x[0],x[1]);
+  x=vsPlan(held,ph);tile("Проведено ПУ",fmt(held)+(ph?" из "+fmt(ph):""),x[0],x[1]);
+  tile("Средний чек",sal?money(rev/sal):"—","выручка / новые продажи");
+  tile("Явка на ПУ",rec?pct(held/rec):"—","проведено / записалось");
+  tile("ПУ → продажа",held?pct(sal/held):"—","продажи / проведено");
+  tile("Звонки отдела",fmt(cs("dials"))+" / "+fmt(cs("connects")),"наборы / дозвоны · пропущено "+fmt(cs("missed")),cs("missed")?"down":"flat");
+  // накопительная выручка
+  const days=[];let acc=0;for(let d=1;d<=I.n;d++){const ds=m+"-"+String(d).padStart(2,"0");const r=S.find(z=>z.date===ds);
+    if(ds<=astanaToday()){acc+=(r&&+r.revenue)||0}days.push({x:String(d),vals:[ds<=astanaToday()?acc/1e6:null],plan:pr?pr*d/I.n/1e6:null,tip:ddmm(ds)+": "+(ds<=astanaToday()?mln(acc):"—")+(pr?" · по темпу "+mln(pr*d/I.n):"")})}
+  bars($("ch-rev"),days,{colors:["--accent"],label:"Выручка с начала месяца",max:pr?pr/1e6:0,fmtTick:v=>fmt(v,1),line:days.map(d=>d.plan)});
+  // воронка
+  const f=$("sales-funnel");f.textContent="";const wrap=el("div","fun");
+  const steps=[["Лиды в CRM",sm("leads_crm")],["Квал. лиды",sm("qual")],["Записались на ПУ",rec],["Оплатили ПУ",paid],["Пришли на ПУ",held],["Купили",sal]].filter(s=>s[1]);
+  const top=Math.max(...steps.map(s=>s[1]),1);
+  steps.forEach((s,i)=>{const r=el("div","r");r.appendChild(el("span",null,s[0]+": "+fmt(s[1])));
+    const b=el("div","bar");const ii=document.createElement("i");ii.style.width=(100*s[1]/top)+"%";b.appendChild(ii);r.appendChild(b);
+    r.appendChild(el("span","cr",i?pct(s[1]/steps[i-1][1]):""));wrap.appendChild(r)});
+  if(ren||refund)wrap.appendChild(el("p","note","Продления: "+fmt(ren)+" · возвраты: "+money(refund)));
+  f.appendChild(wrap);
+  // менеджеры
+  const t=$("mgr-table");t.textContent="";
+  const names=[...new Set(M.map(r=>r.manager))];
+  const H=["Менеджер","Лиды","Записи","Пришли (свои)","Продажи","Выручка","План выручки","% плана","CR лид→запись","CR запись→явка","CR явка→покупка"];
+  const th=document.createElement("thead"),tr=document.createElement("tr");H.forEach(h=>tr.appendChild(el("th",null,h)));th.appendChild(tr);t.appendChild(th);
+  const tb=document.createElement("tbody");
+  names.map(n=>{const R=M.filter(r=>r.manager===n),q=k=>R.reduce((a,r)=>a+(+r[k]||0),0);
+    return {n,leads:q("leads"),rec:q("records"),own:q("came_own"),tomop:q("came_to_mop"),sal:q("sales"),rev:q("revenue"),pr:planOf(m,n,"revenue")}})
+   .sort((a,b)=>b.rev-a.rev).forEach(z=>{const r=document.createElement("tr");
+    const p=z.pr?z.rev/z.pr:null;
+    [z.n,fmt(z.leads),fmt(z.rec),fmt(z.own),fmt(z.sal),money(z.rev),money(z.pr)].forEach(v=>r.appendChild(el("td",null,v)));
+    const pc=el("td");if(p!=null){const ch=el("span","chip "+(p>=I.pace*0.95?"good":p>=I.pace*0.8?"warn":"bad"),pct(p));pc.appendChild(ch)}else pc.textContent="—";r.appendChild(pc);
+    [z.leads?pct(z.rec/z.leads):"—",z.rec?pct(z.own/z.rec):"—",z.tomop?pct(z.sal/z.tomop):"—"].forEach(v=>r.appendChild(el("td",null,v)));
+    tb.appendChild(r)});
+  t.appendChild(tb);
+}
+
+function renderAll(){renderSales();renderTasks();renderTiles();renderWeeks();renderLeadsChart();renderRecChart();renderTaskChart();renderContentChart();renderCreatives();renderReels()}
 let rt;window.addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(()=>{renderLeadsChart();renderRecChart();renderTaskChart();renderContentChart()},150)});
 renderAll();
 
@@ -527,7 +614,7 @@ async function loadChecks(){
 }
 function apply(p){
   daily=(p.daily&&p.daily.rows||[]).slice().sort((a,b)=>a.date<b.date?-1:1);
-  creatives=p.creatives||null; reels=(p.reels&&p.reels.rows)||[]; cfg=p.cfg||{};
+  creatives=p.creatives||null; sales=p.sales||null; reels=(p.reels&&p.reels.rows)||[]; cfg=p.cfg||{};
   $("updated").textContent=p.updated?"Обновлено "+new Date(p.updated).toLocaleString("ru-RU",{timeZone:"Asia/Almaty",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"";
   renderAll(); loadChecks();
 }
