@@ -154,6 +154,19 @@ a{color:var(--accent)}
 .gate button{font:inherit;font-weight:600;padding:11px;border:0;border-radius:10px;background:var(--accent);color:#fff;cursor:pointer}
 .gate .err{color:var(--bad);font-size:13px;min-height:18px}
 .gate label.rem{font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center}
+.plan textarea,.plan input[type=url]{width:100%;font:inherit;font-size:14px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:10px 12px}
+.plan textarea{min-height:220px;resize:vertical;line-height:1.5}
+.plan label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+.plan .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px}
+.btn{font:inherit;font-weight:600;padding:9px 16px;border:0;border-radius:10px;background:var(--accent);color:#fff;cursor:pointer}
+.btn:disabled{opacity:.5;cursor:default}
+.fb{margin-top:16px;border:1px solid var(--line);border-left:4px solid var(--org);border-radius:12px;padding:12px 14px;background:var(--bg)}
+.fb h3{margin:0 0 4px;font-size:14px;color:var(--org)}
+.fb .body{font-size:14px}
+.fb .body h4{margin:12px 0 4px;font-size:14px}
+.fb .body ul{margin:4px 0;padding-left:18px;display:grid;gap:4px}
+.fb .body p{margin:6px 0}
+.fb.stale{border-left-color:var(--warn)}
 </style>
 </head>
 <body>
@@ -260,6 +273,19 @@ a{color:var(--accent)}
     <div class="scroll"><table id="reels-table"></table></div>
     <p class="note">Уход в первые 3 с выше 60% — слабый хук. Хорошо: ниже 50% и среднее время просмотра от 10 с.</p>
   </section>
+
+  <section class="card plan" id="plan" data-tab="marketing">
+    <div class="dayhead"><h2>Контент-план на неделю</h2>
+      <div class="daynav"><select class="inp" id="plan-week" aria-label="Неделя"></select></div></div>
+    <div class="meta" id="plan-meta"></div>
+    <label for="plan-text">План: дни, рубрики, темы рилсов, хуки, сторис, что продаём</label>
+    <textarea id="plan-text" placeholder="Пн — рилс: …, хук: «…»; сторис: …&#10;Вт — …"></textarea>
+    <label for="plan-link">Или ссылка на Google Doc / Google Таблицу (откройте доступ по ссылке)</label>
+    <input type="url" id="plan-link" placeholder="https://docs.google.com/…">
+    <div class="row"><button type="button" class="btn" id="plan-save">Сохранить план</button><span class="meta" id="plan-saved"></span></div>
+    <div id="plan-fb"></div>
+    <p class="note">Разбор от Claude появляется здесь каждый вечер, если план новый или изменился. План — отдельно для каждого проекта (переключатель вверху).</p>
+  </section>
 </div>
 
 <script>
@@ -306,7 +332,7 @@ function extrasOf(s){return ((checks[s]&&checks[s].extra)||[]).map(x=>Object.ass
 function tasksFor(s){return baseTasks(s).concat(extrasOf(s))}
 function newId(){return "x"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)}
 
-let PAY=null, proj="ps", period="7", db=null, cfg={}, canWrite=true, daily=[], creatives=null, reels=[], checks={}, day=astanaToday(), writing=Promise.resolve();
+let PAY=null, proj="ps", period="7", db=null, cfg={}, canWrite=true, daily=[], creatives=null, reels=[], checks={}, day=astanaToday(), writing=Promise.resolve(), content={}, feedback={}, PW="", planWeek=null;
 const status=(msg)=>{const el=$("status");el.textContent=msg||"";el.hidden=!msg};
 function post(obj,errMsg){
   const body=JSON.stringify(Object.assign({token:cfg.apps_token},obj));
@@ -896,9 +922,69 @@ async function decrypt(pw){
 async function loadChecks(){
   if(!cfg.apps_url){db=null;renderTasks();return}
   try{const r=await fetch(cfg.apps_url+"?token="+encodeURIComponent(cfg.apps_token)+"&t="+Date.now());const j=await r.json();
-    if(j.error)throw new Error(j.error);checks=j.checks||{};tpl=j.template&&Array.isArray(j.template.daily)?j.template:null;db=true;canWrite=true;status("")}
+    if(j.error)throw new Error(j.error);checks=j.checks||{};tpl=j.template&&Array.isArray(j.template.daily)?j.template:null;content=j.content||{};db=true;canWrite=true;status("")}
   catch(e){db=null;status("Не удалось загрузить отметки задач из Google Таблицы. Обновите страницу позже.")}
-  renderTasks();renderTaskChart();renderTiles();renderWeeks();if(tab==="summary")renderSummary();
+  renderTasks();renderTaskChart();renderTiles();renderWeeks();renderPlan();if(tab==="summary")renderSummary();
+}
+/* ---------- контент-план недели + разбор от Claude ---------- */
+function mondayOf(s){const d=new Date(s+"T00:00:00Z");const w=(d.getUTCDay()+6)%7;d.setUTCDate(d.getUTCDate()-w);return d.toISOString().slice(0,10)}
+function addDays(s,n){const d=new Date(s+"T00:00:00Z");d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)}
+function defaultPlanWeek(){const t=astanaToday(),w=(new Date(t+"T00:00:00Z").getUTCDay()+6)%7;return w>=4?addDays(mondayOf(t),7):mondayOf(t)}
+function fmtTs(s){if(!s)return "";const m=s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);return m?m[3]+"."+m[2]+" "+m[4]+":"+m[5]:s}
+function fbBody(text){
+  const box=el("div","body");let ul=null;
+  const inline=(node,str)=>{str.split(/(\*\*[^*]+\*\*)/).forEach(part=>{if(/^\*\*[^*]+\*\*$/.test(part))node.appendChild(el("b",null,part.slice(2,-2)));else if(part)node.appendChild(document.createTextNode(part))});return node};
+  String(text||"").split("\n").forEach(line=>{
+    const l=line.trim();
+    if(/^[-•*] /.test(l)){if(!ul){ul=el("ul");box.appendChild(ul)}ul.appendChild(inline(el("li"),l.slice(2)));return}
+    ul=null; if(!l)return;
+    if(/^#{1,4} /.test(l))box.appendChild(el("h4",null,l.replace(/^#+ /,"")));
+    else box.appendChild(inline(el("p"),l));
+  });
+  return box;
+}
+function renderPlan(){
+  const sel=$("plan-week"); if(!sel)return;
+  const cur=mondayOf(astanaToday()),weeks=new Set([addDays(cur,7),cur]);
+  Object.values(content).forEach(c=>{if(c.proj===proj)weeks.add(c.week)});
+  Object.keys(feedback).forEach(k=>{const [w,p]=k.split("|");if(p===proj)weeks.add(w)});
+  if(!planWeek)planWeek=defaultPlanWeek(); weeks.add(planWeek);
+  sel.textContent="";
+  [...weeks].sort().reverse().slice(0,12).forEach(w=>{const o=el("option",null,ddmm(w)+"–"+ddmm(addDays(w,6))+(w===cur?" · эта неделя":w===addDays(cur,7)?" · следующая":""));o.value=w;if(w===planWeek)o.selected=true;sel.appendChild(o)});
+  const k=planWeek+"|"+proj,c=content[k]||{},f=feedback[k];
+  $("plan-meta").textContent=(proj==="yq"?"Yqylas Dombyra School":"PianoSoul")+" · неделя "+ddmm(planWeek)+"–"+ddmm(addDays(planWeek,6));
+  if(document.activeElement!==$("plan-text"))$("plan-text").value=c.text||"";
+  if(document.activeElement!==$("plan-link"))$("plan-link").value=c.link||"";
+  $("plan-saved").textContent=c.updated?"Сохранено "+fmtTs(c.updated):(db?"Ещё не сохранён":"");
+  $("plan-save").disabled=!cfg.apps_url;
+  const box=$("plan-fb");box.textContent="";
+  if(f){
+    const stale=c.updated&&f.plan_updated&&c.updated>f.plan_updated;
+    const d=el("div","fb"+(stale?" stale":""));
+    d.appendChild(el("h3",null,"Разбор от Claude · "+fmtTs(f.at)));
+    if(stale)d.appendChild(el("div","meta","План изменён после разбора — новый разбор будет вечером."));
+    d.appendChild(fbBody(f.text));box.appendChild(d);
+  }else if(c.updated){box.appendChild(el("p","note","Разбор появится вечером."))}
+}
+$("plan-week").addEventListener("change",e=>{planWeek=e.target.value;renderPlan()});
+$("plan-save").addEventListener("click",()=>{
+  const text=$("plan-text").value.trim(),link=$("plan-link").value.trim();
+  if(!text&&!link){$("plan-saved").textContent="Вставьте план или ссылку.";return}
+  const k=planWeek+"|"+proj,ts=new Date(Date.now()+5*3600e3).toISOString().slice(0,19);
+  content[k]={week:planWeek,proj,text,link,updated:ts};
+  $("plan-saved").textContent="Сохраняю…";
+  post({action:"content",week:planWeek,proj,text,link},"Контент-план не сохранился. Проверьте интернет и сохраните ещё раз.");
+  writing.then(()=>{if($("status").hidden)$("plan-saved").textContent="Сохранено "+fmtTs(ts)});
+  renderPlan();
+});
+async function loadFeedback(){
+  try{const r=await fetch("feedback.enc.json?t="+Date.now(),{cache:"no-store"});if(!r.ok)return;
+    const j=await r.json();
+    const base=await crypto.subtle.importKey("raw",new TextEncoder().encode(PW),"PBKDF2",false,["deriveKey"]);
+    const key=await crypto.subtle.deriveKey({name:"PBKDF2",salt:b64(j.salt),iterations:j.iter,hash:"SHA-256"},base,{name:"AES-GCM",length:256},false,["decrypt"]);
+    const pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:b64(j.iv)},key,b64(j.data));
+    feedback=(JSON.parse(new TextDecoder().decode(pt)).items)||{};renderPlan();
+  }catch(e){}
 }
 function useProj(k){
   if(!PAY)return; proj=k==="yq"&&PAY.yq?"yq":"ps";
@@ -914,7 +1000,7 @@ function useProj(k){
   $("sales-month").textContent="";$("sales-week").textContent="";smonth=null;sweek=null;
   try{localStorage.setItem("ps_proj",proj)}catch(e){}
   sumKey=null;
-  renderTiles();renderWeeks();renderLeadsChart();renderRecChart();renderContentChart();renderCreatives();renderReels();renderSales();
+  renderTiles();renderWeeks();renderLeadsChart();renderRecChart();renderContentChart();renderCreatives();renderReels();renderSales();renderPlan();
   if(tab==="summary")renderSummary();
 }
 document.querySelectorAll("#proj-seg button").forEach(b=>b.addEventListener("click",()=>useProj(b.dataset.pr)));
@@ -923,12 +1009,12 @@ function apply(p){
   $("updated").textContent=p.updated?"Обновлено "+new Date(p.updated).toLocaleString("ru-RU",{timeZone:"Asia/Almaty",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"";
   let k="ps";try{k=localStorage.getItem("ps_proj")||"ps"}catch(e){}
   $("proj-seg").hidden=!p.yq;
-  useProj(k); renderTasks(); renderTaskChart(); loadChecks();
+  useProj(k); renderTasks(); renderTaskChart(); loadChecks(); loadFeedback();
   showTab(location.hash.slice(1)||"summary");
 }
 async function unlock(pw,remember){
   const btn=$("gate-btn"),err=$("gate-err");btn.disabled=true;btn.textContent="Открываю…";err.textContent="";
-  try{const p=await decrypt(pw);
+  try{const p=await decrypt(pw);PW=pw;
     try{if(remember)localStorage.setItem("ps_pw",pw);else localStorage.removeItem("ps_pw")}catch(e){}
     $("gate").hidden=true;apply(p);
   }catch(e){err.textContent=e.message==="nofile"?"Данные ещё не выложены. Попробуйте позже.":"Неверный пароль.";
