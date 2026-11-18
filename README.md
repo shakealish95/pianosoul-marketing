@@ -4,5 +4,5 @@
 Данные в `data.enc.json` зашифрованы (AES-256-GCM, ключ из пароля) и обновляются каждый вечер автоматически.
 
 ## Две страницы
-- `index.html` — PianoSoul, `yqylas.html` — Yqylas Dombyra School. Код одинаковый, отличаются только `<meta name="proj">`, title, фавиконка (`favicon-ps*` / `favicon-yq*`) и шапка.
+- `index.html` — PianoSoul, `yqylas.html` — Yqylas Dombyra School. Код одинаковый, отличаются только `<meta name="proj">`, title, фавиконка из логотипов школ (`favicon-ps*` / `favicon-yq*`, `apple-touch-icon-*`) и шапка.
 - При правках меняйте `index.html` и пересобирайте `yqylas.html` той же заменой строк.
