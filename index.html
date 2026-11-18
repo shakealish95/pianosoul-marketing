@@ -213,7 +213,8 @@ a{color:var(--accent)}
   <form id="gate-form" autocomplete="on">
     <h1 id="gate-title">PianoSoul</h1><div class="meta" id="gate-sub">кабинет маркетинга и продаж</div>
     <label for="pw" class="meta">Пароль</label>
-    <input type="password" id="pw" autocomplete="current-password" required>
+    <input type="password" id="pw" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" required>
+    <label class="rem"><input type="checkbox" id="showpw"> Показать пароль</label>
     <label class="rem"><input type="checkbox" id="remember" checked> Запомнить на этом устройстве</label>
     <button type="submit" id="gate-btn">Открыть</button>
     <div class="err" id="gate-err" role="alert"></div>
@@ -1159,13 +1160,21 @@ function apply(p){
 }
 async function unlock(pw,remember){
   const btn=$("gate-btn"),err=$("gate-err");btn.disabled=true;btn.textContent="Открываю…";err.textContent="";
-  try{const p=await decrypt(pw);PW=pw;
-    try{if(remember)localStorage.setItem("ps_pw",pw);else localStorage.removeItem("ps_pw")}catch(e){}
-    $("gate").hidden=true;apply(p);
-  }catch(e){err.textContent=e.message==="nofile"?"Данные ещё не выложены. Попробуйте позже.":"Неверный пароль.";
-    try{localStorage.removeItem("ps_pw")}catch(x){}}
+  pw=String(pw||"").trim();
+  let p=null;
+  try{p=await decrypt(pw)}
+  catch(e){
+    if(e&&e.name==="OperationError"){err.textContent="Неверный пароль. Проверьте раскладку и заглавные буквы (нажмите «Показать пароль»).";try{localStorage.removeItem("ps_pw")}catch(x){}}
+    else if(e&&e.message==="nofile")err.textContent="Данные ещё не выложены. Попробуйте позже.";
+    else err.textContent="Не удалось загрузить данные: "+((e&&e.message)||e)+". Проверьте интернет и обновите страницу.";
+    btn.disabled=false;btn.textContent="Открыть";return}
+  PW=pw;
+  try{if(remember)localStorage.setItem("ps_pw",pw);else localStorage.removeItem("ps_pw")}catch(e){}
+  $("gate").hidden=true;
+  try{apply(p)}catch(e){const st=$("status");st.hidden=false;st.textContent="Часть страницы не отрисовалась: "+((e&&e.message)||e)+". Пришлите этот текст Алишеру.";console.error(e)}
   btn.disabled=false;btn.textContent="Открыть";
 }
+$("showpw").addEventListener("change",e=>{$("pw").type=e.target.checked?"text":"password"});
 $("gate-form").addEventListener("submit",e=>{e.preventDefault();unlock($("pw").value,$("remember").checked)});
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&cfg.apps_url&&$("gate").hidden)loadChecks()});
 let saved=null;try{saved=localStorage.getItem("ps_pw")}catch(e){}
