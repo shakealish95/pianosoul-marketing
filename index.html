@@ -3,11 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="proj" content="ps">
+<link rel="icon" href="favicon-ps.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-ps-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon-ps.png">
 <meta name="theme-color" content="#e2402f">
-<title>PianoSoul · Yqylas</title>
+<title>PianoSoul · кабинет</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
@@ -94,7 +95,9 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
 .seg button{font:inherit;font-size:13px;padding:5px 10px;border:0;background:var(--bg);color:var(--muted);cursor:pointer}
 .seg button+button{border-left:1px solid var(--line)}
 .seg button.on{background:var(--accent);color:#fff}
-.seg.proj button{font-size:14px;padding:7px 16px;font-weight:600}
+.projlink{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--ink);text-decoration:none;border:1px solid var(--line);border-radius:99px;padding:7px 14px;background:var(--surface)}
+.projlink:hover{border-color:var(--ink)}
+.projlink img{border-radius:5px}
 .tiles.four{grid-template-columns:repeat(4,minmax(0,1fr))}
 @media (max-width:760px){.tiles.four{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .h3{font-size:14px;font-weight:600;margin:0 0 8px;color:var(--muted)}
@@ -208,7 +211,7 @@ a{color:var(--accent)}
 <body>
 <div class="gate" id="gate">
   <form id="gate-form" autocomplete="on">
-    <h1>PianoSoul <span style="color:var(--accent)">·</span> Yqylas</h1>
+    <h1 id="gate-title">PianoSoul</h1><div class="meta" id="gate-sub">кабинет маркетинга и продаж</div>
     <label for="pw" class="meta">Пароль</label>
     <input type="password" id="pw" autocomplete="current-password" required>
     <label class="rem"><input type="checkbox" id="remember" checked> Запомнить на этом устройстве</label>
@@ -219,7 +222,7 @@ a{color:var(--accent)}
 <div class="wrap">
   <header>
     <h1><span id="proj-name">PianoSoul</span> <small id="proj-sub" class="sub">школа фортепиано для взрослых</small></h1>
-    <div class="seg proj" id="proj-seg" role="group" aria-label="Проект"><button type="button" data-pr="ps" class="on">PianoSoul</button><button type="button" data-pr="yq">Yqylas</button></div>
+    <a class="projlink" id="proj-link" href="yqylas.html"><img id="proj-link-ico" src="favicon-yq.svg" alt="" width="20" height="20"><span id="proj-link-txt">Yqylas Dombyra School</span> →</a>
     <div class="meta" id="updated">Данные загружаются…</div>
   </header>
   <nav class="tabs" id="tabs" aria-label="Разделы"><button type="button" data-tab="summary" class="on">Общий</button><button type="button" data-tab="marketing">Маркетинг</button><button type="button" data-tab="sales">Продажи</button></nav>
@@ -1138,22 +1141,20 @@ function useProj(k){
   $("proj-name").textContent=proj==="yq"?"Yqylas Dombyra School":"PianoSoul";
   $("proj-sub").textContent=proj==="yq"?"домбыра мектебі":"школа фортепиано для взрослых";
   document.title=(proj==="yq"?"Yqylas Dombyra School":"PianoSoul")+" · кабинет";
-  document.querySelectorAll("#proj-seg button").forEach(b=>b.classList.toggle("on",b.dataset.pr===proj));
   $("lg-t").textContent=proj==="yq"?"Лиды (все, из РНП)":"Таргет"; $("lg-o-wrap").hidden=proj==="yq";
   $("sales-src").textContent=proj==="yq"?"Источник: РНП YDS (Google Таблица, листы «Ввод продажи» и «План РНП»). Звонков у Yqylas в этом разделе пока нет.":"Источник: РНП 2026 (Google Таблица) и звонки из amoCRM.";
   $("sales-month").textContent="";$("sales-week").textContent="";smonth=null;sweek=null;
-  try{localStorage.setItem("ps_proj",proj)}catch(e){}
   sumKey=null;
   renderTiles();renderWeeks();renderLeadsChart();renderRecChart();renderContentChart();renderCreatives();renderReels();renderSales();renderPlan();
   if(tab==="summary")renderSummary();
 }
-document.querySelectorAll("#proj-seg button").forEach(b=>b.addEventListener("click",()=>useProj(b.dataset.pr)));
+const PAGE_PROJ=(document.querySelector('meta[name="proj"]')||{}).content==="yq"?"yq":"ps";
+$("proj-link").addEventListener("click",e=>{e.currentTarget.href=e.currentTarget.getAttribute("href").split("#")[0]+location.hash});
 function apply(p){
   PAY=p; cfg=p.cfg||{};
   $("updated").textContent=p.updated?"Обновлено "+new Date(p.updated).toLocaleString("ru-RU",{timeZone:"Asia/Almaty",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"";
-  let k="ps";try{k=localStorage.getItem("ps_proj")||"ps"}catch(e){}
-  $("proj-seg").hidden=!p.yq;
-  useProj(k); renderTasks(); renderTaskChart(); loadChecks(); loadFeedback();
+  $("proj-link").hidden=!p.yq;
+  useProj(PAGE_PROJ); renderTasks(); renderTaskChart(); loadChecks(); loadFeedback();
   showTab(location.hash.slice(1)||"summary");
 }
 async function unlock(pw,remember){
