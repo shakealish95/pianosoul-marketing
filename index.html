@@ -167,6 +167,12 @@ a{color:var(--accent)}
 .fb .body ul{margin:4px 0;padding-left:18px;display:grid;gap:4px}
 .fb .body p{margin:6px 0}
 .fb.stale{border-left-color:var(--warn)}
+.subnav{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.subnav button{font:inherit;font-weight:600;font-size:14px;padding:8px 16px;border:1px solid var(--line);border-radius:99px;background:var(--surface);color:var(--muted);cursor:pointer}
+.subnav button.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.subnav .meta{margin-left:4px}
+.tiles.kp{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:760px){.tiles.kp{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 </head>
 <body>
@@ -219,29 +225,50 @@ a{color:var(--accent)}
       <div id="task-list"></div>
       <p class="note" id="task-note">Галочки сохраняются сразу в Google Таблицу и видны Алишеру.</p>
     </div>
-    <div class="card" id="kpi-card">
-      <div class="dayhead"><h2 id="kpi-title">Последние 7 дней</h2>
-        <div class="seg" role="group" aria-label="Период">
-          <button type="button" data-p="day">День</button><button type="button" data-p="7" class="on">7 дней</button><button type="button" data-p="14">14</button><button type="button" data-p="30">30</button>
-        </div></div>
-      <div class="tiles" id="tiles"></div>
-      <p class="note" id="kpi-note">Стрелка — изменение к предыдущему такому же периоду. Записи, приходы и продажи — по дате события в CRM (PianoSoul — amoCRM, Yqylas — РНП), все источники. «День» показывает дату, выбранную слева в задачах.</p>
-    </div>
+    <div class="card"><h2>Выполнение задач по дням</h2><div class="chart" id="ch-tasks"></div>
+      <p class="note">Пунктир — цель 80%. Будние дни за 30 дней.</p></div>
   </section>
 
-  <section class="card" id="weeks" data-tab="marketing">
-    <h2>Неделя к неделе</h2>
+  <section class="subnav" data-tab="marketing" aria-label="Направление">
+    <button type="button" data-sub="perf" class="on">Performance-маркетинг</button><button type="button" data-sub="content">Контент-маркетинг</button>
+    <span class="meta" id="sub-meta">реклама, лиды, записи, креативы</span>
+  </section>
+
+  <section class="card" id="kpi-card" data-tab="marketing" data-sub="perf">
+    <div class="dayhead"><h2 id="kpi-title">Последние 7 дней</h2><div class="seg kseg" role="group" aria-label="Период"><button type="button" data-p="day">День</button><button type="button" data-p="7" class="on">7 дней</button><button type="button" data-p="14">14</button><button type="button" data-p="30">30</button></div></div>
+    <div class="tiles kp" id="tiles"></div>
+    <p class="note">Стрелка — изменение к предыдущему такому же периоду. Записи, приходы и продажи — по дате события в CRM (PianoSoul — amoCRM, Yqylas — РНП), все источники. «День» — дата, выбранная в задачах.</p>
+  </section>
+
+  <section class="card" id="weeks" data-tab="marketing" data-sub="perf">
+    <h2>Неделя к неделе · реклама</h2>
     <div class="scroll"><table id="weeks-table"></table></div>
-    <p class="note">План: 5–6 рилсов и 3–5 новых креативов в неделю. CPL — расход на лиды таргета в CRM.</p>
+    <p class="note">План: 3–5 новых креативов в неделю. CPL — расход на лиды таргета в CRM.</p>
   </section>
 
-  <section class="charts" data-tab="marketing">
+  <section class="charts" data-tab="marketing" data-sub="perf">
     <div class="card"><h2>Лиды по дням</h2><div class="chart" id="ch-leads"></div>
       <div class="legend" id="leads-legend"><span><b style="background:var(--accent)"></b><span id="lg-t">Таргет</span></span><span id="lg-o-wrap"><b style="background:var(--org)"></b>Органика</span></div></div>
     <div class="card"><h2>Стоимость записи на пробный по неделям, $</h2><div class="chart" id="ch-rec"></div></div>
-    <div class="card"><h2>Выполнение задач по дням</h2><div class="chart" id="ch-tasks"></div></div>
-    <div class="card"><h2>Рилсы и новые креативы по неделям</h2><div class="chart" id="ch-content"></div>
-      <div class="legend"><span><b style="background:var(--accent)"></b>Рилсы</span><span><b style="background:var(--org)"></b>Новые креативы</span></div></div>
+    <div class="card"><h2>Новые креативы по неделям</h2><div class="chart" id="ch-ads"></div><p class="note">Пунктир — план 3 в неделю.</p></div>
+    <div class="card"><h2>Расход по дням, $</h2><div class="chart" id="ch-spend"></div></div>
+  </section>
+
+  <section class="card" id="kpi-c-card" data-tab="marketing" data-sub="content">
+    <div class="dayhead"><h2 id="kpi-c-title">Последние 7 дней</h2><div class="seg kseg" role="group" aria-label="Период"><button type="button" data-p="day">День</button><button type="button" data-p="7" class="on">7 дней</button><button type="button" data-p="14">14</button><button type="button" data-p="30">30</button></div></div>
+    <div class="tiles kp" id="tiles-c"></div>
+    <p class="note">Instagram: охват — сумма дневных охватов аккаунта. Просмотры и досмотры — по рилсам, опубликованным в периоде.</p>
+  </section>
+
+  <section class="card" id="weeks-c" data-tab="marketing" data-sub="content">
+    <h2>Неделя к неделе · контент</h2>
+    <div class="scroll"><table id="weeks-c-table"></table></div>
+    <p class="note">План: 5–6 рилсов в неделю. Уход за 3 с выше 60% — слабый хук.</p>
+  </section>
+
+  <section class="charts" data-tab="marketing" data-sub="content">
+    <div class="card"><h2>Рилсы по неделям</h2><div class="chart" id="ch-content"></div><p class="note">Пунктир — план 5 в неделю.</p></div>
+    <div class="card"><h2>Охват Instagram по дням</h2><div class="chart" id="ch-reach"></div></div>
   </section>
 
   <section class="card" id="sales" data-tab="sales">
@@ -261,20 +288,20 @@ a{color:var(--accent)}
     <p class="note"><span id="sales-src">Источник: РНП 2026 (Google Таблица) и звонки из amoCRM.</span> Темп — какая доля плана должна быть выполнена к этому дню месяца. План недели — месячный план, разделённый по дням.</p>
   </section>
 
-  <section class="card" id="creatives" data-tab="marketing">
+  <section class="card" id="creatives" data-tab="marketing" data-sub="perf">
     <h2>Креативы</h2>
     <div class="meta" id="cr-period"></div>
     <div class="scroll"><table id="cr-table"></table></div>
     <p class="note">Хук — досмотрели 3 секунды из показов. Заявка — оставили заявку из открывших сайт. Главное — стоимость записи и прихода, а не дешёвый клик.</p>
   </section>
 
-  <section class="card" id="reels" data-tab="marketing">
+  <section class="card" id="reels" data-tab="marketing" data-sub="content">
     <h2>Рилсы за 30 дней</h2>
     <div class="scroll"><table id="reels-table"></table></div>
     <p class="note">Уход в первые 3 с выше 60% — слабый хук. Хорошо: ниже 50% и среднее время просмотра от 10 с.</p>
   </section>
 
-  <section class="card plan" id="plan" data-tab="marketing">
+  <section class="card plan" id="plan" data-tab="marketing" data-sub="content">
     <div class="dayhead"><h2>Контент-план на неделю</h2>
       <div class="daynav"><select class="inp" id="plan-week" aria-label="Неделя"></select></div></div>
     <div class="meta" id="plan-meta"></div>
@@ -440,8 +467,8 @@ $("edit-tasks").addEventListener("click",()=>{if(editing){editing=null;renderTas
 $("prev-day").addEventListener("click",()=>{day=addDays(day,-1);renderTasks();if(period==="day")renderTiles()});
 $("next-day").addEventListener("click",()=>{day=addDays(day,1);renderTasks();if(period==="day")renderTiles()});
 $("day").addEventListener("change",e=>{const v=e.target.value;if(v&&e.target.validity.valid){day=v;renderTasks();if(period==="day")renderTiles()}});
-document.querySelectorAll("#kpi-card .seg button").forEach(b=>b.addEventListener("click",()=>{period=b.dataset.p;
-  document.querySelectorAll("#kpi-card .seg button").forEach(x=>x.classList.toggle("on",x===b));
+document.querySelectorAll(".kseg button").forEach(b=>b.addEventListener("click",()=>{period=b.dataset.p;
+  document.querySelectorAll(".kseg button").forEach(x=>x.classList.toggle("on",x.dataset.p===period));
   if(period==="day"&&day===astanaToday()&&daily.length&&daily[daily.length-1].date<day){day=daily[daily.length-1].date;renderTasks()}
   renderTiles()}));
 $("day").addEventListener("blur",e=>{e.target.value=day});
@@ -451,37 +478,45 @@ function completion(d){const ts=tasksFor(d);if(!ts.length)return null;const done
 /* ---------- цифры ---------- */
 function sum(rows,k){return rows.reduce((a,r)=>a+(+r[k]||0),0)}
 function leadsT(r){return +r.leads_target||0} function leadsAll(r){return (+r.leads_target||0)+(+r.leads_org||0)+(+r.leads_other||0)}
+function reelsIn(from,to){return reels.filter(r=>r.date>=from&&r.date<=to)}
+function avgOf(a,k){const v=a.map(r=>r[k]).filter(x=>x!=null&&x!=="").map(Number);return v.length?v.reduce((x,y)=>x+y,0)/v.length:null}
 function renderTiles(){
-  const el=$("tiles"); el.textContent="";
-  if(!daily.length){el.textContent="Нет данных.";return}
+  const P={id:"tiles",title:"kpi-title"},C={id:"tiles-c",title:"kpi-c-title"};
+  [P,C].forEach(x=>{$(x.id).textContent=""});
+  if(!daily.length){$("tiles").textContent="Нет данных.";$("tiles-c").textContent="Нет данных.";return}
   let to,len;
   if(period==="day"){to=day;len=1}else{to=daily[daily.length-1].date;len=+period}
   const from=addDays(to,-(len-1)), pto=addDays(from,-1), pfrom=addDays(pto,-(len-1));
   const A=daily.filter(r=>r.date>=from&&r.date<=to), B=daily.filter(r=>r.date>=pfrom&&r.date<=pto);
   const prevName=len===1?"к предыдущему дню":"к прошлым "+len+" дн.";
-  $("kpi-title").textContent=len===1?(ddmm(to)+(to===astanaToday()?" (сегодня)":"")):("За "+len+" дней: "+ddmm(from)+"–"+ddmm(to));
-  if(!A.length){const p=document.createElement("p");p.className="meta";p.textContent=to>daily[daily.length-1].date?"Данных за этот день ещё нет: они обновляются вечером в 21:22.":"Нет данных за этот период.";el.appendChild(p);return}
-  const m=(rows)=>{const s=sum(rows,"spend"),lt=rows.reduce((a,r)=>a+leadsT(r),0),la=rows.reduce((a,r)=>a+leadsAll(r),0),rec=sum(rows,"rec");
-    const days=rows.map(r=>r.date), comp=days.map(completion).filter(v=>v!=null);
-    return {spend:s,leads:la,cpl:div(s,lt),rec,cpr:div(s,rec),came:sum(rows,"came"),sale:sum(rows,"sale"),reels:sum(rows,"reels"),newads:sum(rows,"new_ads"),fol:sum(rows,"followers"),tasks:comp.length?comp.reduce((a,b)=>a+b,0)/comp.length:null}};
-  const a=m(A), b=m(B);
-  const T=[["Расход","spend","$",0,0],["Лиды в CRM","leads","",0,1],["CPL таргета","cpl","$",2,-1],["Записи на пробный","rec","",0,1],["$ на запись","cpr","$",1,-1],["Пришли / продажи","came","",0,1],["Рилсы / новые креативы","reels","",0,1],["Задачи выполнены","tasks","%",0,1]];
-  T.forEach(([k,f,u,d,good])=>{
-    const t=document.createElement("div");t.className="tile";
-    const kk=document.createElement("div");kk.className="k";kk.textContent=k;
-    const v=document.createElement("div");v.className="v";
-    let val=a[f];
+  const title=len===1?(ddmm(to)+(to===astanaToday()?" (сегодня)":"")):("За "+len+" дней: "+ddmm(from)+"–"+ddmm(to));
+  $("kpi-title").textContent=title;$("kpi-c-title").textContent=title;
+  if(!A.length){[P,C].forEach(x=>{const p=document.createElement("p");p.className="meta";p.textContent=to>daily[daily.length-1].date?"Данных за этот день ещё нет: они обновляются вечером в 21:22.":"Нет данных за этот период.";$(x.id).appendChild(p)});return}
+  const m=(rows,f,t)=>{const s=sum(rows,"spend"),lt=rows.reduce((a,r)=>a+leadsT(r),0),rec=sum(rows,"rec"),sale=sum(rows,"sale"),R=reelsIn(f,t);
+    return {spend:s,lt,cpl:div(s,lt),rec,cpr:div(s,rec),came:sum(rows,"came"),sale,cps:div(s,sale),newads:sum(rows,"new_ads"),
+      reels:sum(rows,"reels"),stories:sum(rows,"stories"),reach:sum(rows,"reach"),fol:sum(rows,"followers"),lo:sum(rows,"leads_org"),
+      views:avgOf(R,"views"),watch:avgOf(R,"watch_s"),skip:avgOf(R,"skip")}};
+  const a=m(A,from,to), b=m(B,pfrom,pto);
+  const tile=(host,[k,f,u,d,good])=>{
+    const t=el("div","tile");t.appendChild(el("div","k",k));
+    const v=el("div","v");let val=a[f];
     if(f==="came") v.textContent=fmt(a.came)+" / "+fmt(a.sale);
-    else if(f==="reels") v.textContent=fmt(a.reels)+" / "+fmt(a.newads);
+    else if(val==null) v.textContent="—";
     else if(u==="%") v.textContent=pct(val);
+    else if(u==="s") v.textContent=fmt(val,1)+" с";
     else v.textContent=(u==="$"?"$":"")+fmt(val,d);
-    const dd=document.createElement("div");dd.className="d";
-    const pv=b[f];
+    t.appendChild(v);
+    const dd=el("div","d"," ");const pv=b[f];
     if(val!=null&&pv!=null&&pv!==0&&B.length){const ch=(val-pv)/Math.abs(pv);const better=ch*good>0.02,worse=ch*good<-0.02;
       dd.className="d "+(better?"up":worse?"down":"flat");dd.textContent=(ch>0?"▲ ":ch<0?"▼ ":"")+fmt(Math.abs(ch)*100,0)+"% "+prevName}
-    else dd.textContent=" ";
-    t.append(kk,v,dd);el.appendChild(t);
-  });
+    t.appendChild(dd);host.appendChild(t)};
+  [["Расход","spend","$",0,0],["Лиды таргета","lt","",0,1],["CPL таргета","cpl","$",2,-1],["Записи на пробный","rec","",0,1],
+   ["$ на запись","cpr","$",1,-1],["Пришли / продажи","came","",0,1],["$ на продажу","cps","$",0,-1],["Новые креативы","newads","",0,1]].forEach(x=>tile($("tiles"),x));
+  const ig=proj==="ps"||reels.length||a.fol;
+  [["Рилсы","reels","",0,1],["Сторис","stories","",0,1],["Охват Instagram","reach","",0,1],["Подписчики +","fol","",0,1],
+   [proj==="ps"?"Лиды из органики":"Лиды из органики (нет данных)","lo","",0,1],["Ср. просмотры рилса","views","",0,1],["Ср. время просмотра","watch","s",1,1],["Уход за 3 с","skip","%",0,-1]]
+   .forEach(x=>{if(proj==="yq"&&x[1]==="lo"){const t=el("div","tile");t.append(el("div","k","Лиды из органики"),el("div","v","—"),el("div","d","у Yqylas не размечены"));$("tiles-c").appendChild(t)}else tile($("tiles-c"),x)});
+  if(!ig)$("tiles-c").appendChild(el("p","meta","Instagram этого проекта не подключён к аналитике."));
 }
 function weeksData(){
   const W={};
@@ -489,24 +524,25 @@ function weeksData(){
   return Object.keys(W).sort().reverse().slice(0,8).map(w=>{const rows=W[w];const s=sum(rows,"spend"),lt=rows.reduce((a,r)=>a+leadsT(r),0);
     const days=[0,1,2,3,4].map(i=>addDays(w,i)).filter(d=>d<=astanaToday()), comp=days.map(completion).filter(v=>v!=null);
     return {w,days:rows.length,spend:s,lt,lo:sum(rows,"leads_org"),cpl:div(s,lt),rec:sum(rows,"rec"),cpr:div(s,sum(rows,"rec")),came:sum(rows,"came"),sale:sum(rows,"sale"),
-      reels:sum(rows,"reels"),stories:sum(rows,"stories"),newads:sum(rows,"new_ads"),fol:sum(rows,"followers"),tasks:comp.length?comp.reduce((a,b)=>a+b,0)/comp.length:null}});
+      reels:sum(rows,"reels"),stories:sum(rows,"stories"),newads:sum(rows,"new_ads"),fol:sum(rows,"followers"),reach:sum(rows,"reach"),
+      rv:avgOf(reelsIn(w,addDays(w,6)),"views"),rw:avgOf(reelsIn(w,addDays(w,6)),"watch_s"),rs:avgOf(reelsIn(w,addDays(w,6)),"skip"),tasks:comp.length?comp.reduce((a,b)=>a+b,0)/comp.length:null}});
+}
+function weekTable(t,H,rowsFn){
+  t.textContent="";const W=weeksData(); if(!W.length){t.textContent="Нет данных.";return}
+  const th=document.createElement("thead"),tr=document.createElement("tr");H.forEach(h=>tr.appendChild(el("th",null,h)));th.appendChild(tr);t.appendChild(th);
+  const tb=document.createElement("tbody");
+  W.forEach(x=>{const r=document.createElement("tr");const partial=x.days<7?" ("+x.days+" дн.)":"";
+    const cells=rowsFn(x);cells.unshift([ddmm(x.w)+"–"+ddmm(addDays(x.w,6))+partial]);
+    cells.forEach(([v,cls])=>{const c=el("td",cls||null,v==null?"—":String(v));r.appendChild(c)});tb.appendChild(r)});
+  t.appendChild(tb);
 }
 function renderWeeks(){
-  const t=$("weeks-table"); t.textContent="";
-  const W=weeksData(); if(!W.length){t.textContent="Нет данных.";return}
-  const H=["Неделя","Расход $","Лиды таргет","Лиды органика","CPL $","Записи","$ запись","Пришли","Продажи","Рилсы","Сторис","Новые креативы","Подписчики +","Задачи"];
-  const th=document.createElement("thead"),tr=document.createElement("tr");H.forEach(h=>{const c=document.createElement("th");c.textContent=h;tr.appendChild(c)});th.appendChild(tr);t.appendChild(th);
-  const tb=document.createElement("tbody");
-  W.forEach(x=>{const r=document.createElement("tr");
-    const partial=x.days<7?" ("+x.days+" дн.)":"";
-    const cells=[ddmm(x.w)+"–"+ddmm(addDays(x.w,6))+partial,fmt(x.spend),fmt(x.lt),fmt(x.lo),fmt(x.cpl,2),fmt(x.rec),fmt(x.cpr,1),fmt(x.came),fmt(x.sale),x.reels,x.stories?fmt(x.stories):"—",x.newads,fmt(x.fol),pct(x.tasks)];
-    cells.forEach((v,i)=>{const c=document.createElement("td");c.textContent=v;
-      if(i===9&&proj==="yq"&&!reels.length){c.textContent="—"}
-      else if(i===9&&x.days===7)c.className=x.reels>=5?"plan-ok":"plan-low";
-      if(i===11&&x.days===7)c.className=x.newads>=3?"plan-ok":"plan-low";
-      r.appendChild(c)});
-    tb.appendChild(r)});
-  t.appendChild(tb);
+  weekTable($("weeks-table"),["Неделя","Расход $","Лиды таргет","CPL $","Записи","$ запись","Пришли","Продажи","$ продажа","Новые креативы"],
+    x=>[[fmt(x.spend)],[fmt(x.lt)],[fmt(x.cpl,2)],[fmt(x.rec)],[fmt(x.cpr,1)],[fmt(x.came)],[fmt(x.sale)],[fmt(div(x.spend,x.sale),0)],[x.newads,x.days===7?(x.newads>=3?"plan-ok":"plan-low"):""]]);
+  const noig=proj==="yq"&&!reels.length;
+  weekTable($("weeks-c-table"),["Неделя","Рилсы","Сторис","Охват","Подписчики +","Лиды органика","Ср. просмотры рилса","Ср. время, с","Уход за 3 с"],
+    x=>[[noig?"—":x.reels,!noig&&x.days===7?(x.reels>=5?"plan-ok":"plan-low"):""],[x.stories?fmt(x.stories):"—"],[x.reach?fmt(x.reach):"—"],[x.fol?fmt(x.fol):"—"],
+        [proj==="yq"?"—":fmt(x.lo)],[x.rv!=null?fmt(x.rv):"—"],[x.rw!=null?fmt(x.rw,1):"—"],[x.rs!=null?pct(x.rs):"—",x.rs==null?"":x.rs<0.5?"plan-ok":x.rs>0.6?"plan-low":""]]);
 }
 
 /* ---------- графики (SVG по ширине карточки) ---------- */
@@ -557,8 +593,14 @@ function renderTaskChart(){
 }
 function renderContentChart(){
   const W=weeksData().slice().reverse();
-  const d=W.map(x=>({x:ddmm(x.w),vals:[x.reels,x.newads],tip:ddmm(x.w)+": рилсов "+x.reels+", новых креативов "+x.newads+(x.days<7?" · неделя не полная":"")}));
-  if(d.length) bars($("ch-content"),d,{colors:["--accent","--org"],target:5,max:6,label:"Рилсы и новые креативы по неделям"}); else $("ch-content").textContent="Нет данных.";
+  const d=W.map(x=>({x:ddmm(x.w),vals:[x.reels],tip:ddmm(x.w)+": рилсов "+x.reels+(x.days<7?" · неделя не полная":"")}));
+  if(d.length) bars($("ch-content"),d,{colors:["--accent"],target:5,max:6,label:"Рилсы по неделям",labels:x=>String(x.vals[0]||"")}); else $("ch-content").textContent="Нет данных.";
+  const a=W.map(x=>({x:ddmm(x.w),vals:[x.newads],tip:ddmm(x.w)+": новых креативов "+x.newads+(x.days<7?" · неделя не полная":"")}));
+  if(a.length) bars($("ch-ads"),a,{colors:["--org"],target:3,max:4,label:"Новые креативы по неделям",labels:x=>String(x.vals[0]||"")}); else $("ch-ads").textContent="Нет данных.";
+  const r=daily.slice(-30).map(x=>({x:ddmm(x.date),vals:[+x.reach||0],tip:ddmm(x.date)+": охват "+fmt(+x.reach||0)+(x.followers!=null?" · подписчики +"+fmt(+x.followers):"")}));
+  if(r.some(x=>x.vals[0])) bars($("ch-reach"),r,{colors:["--org"],label:"Охват Instagram по дням"}); else $("ch-reach").textContent="Нет данных.";
+  const sp=daily.slice(-30).map(x=>({x:ddmm(x.date),vals:[+x.spend||0],tip:ddmm(x.date)+": $"+fmt(+x.spend||0)+" · лидов таргета "+leadsT(x)}));
+  if(sp.length) bars($("ch-spend"),sp,{colors:["--accent"],label:"Расход по дням"}); else $("ch-spend").textContent="Нет данных.";
 }
 
 /* ---------- креативы и рилсы ---------- */
@@ -739,16 +781,22 @@ function renderSales(){
 
 /* ---------- вкладки ---------- */
 let tab="summary", sumMode="week", sumKey=null;
+let sub="perf";try{sub=localStorage.getItem("ps_sub")==="content"?"content":"perf"}catch(e){}
 function showTab(t){
+  if(t==="performance"||t==="content"){sub=t==="content"?"content":"perf";t="marketing"}
   tab=["summary","marketing","sales"].includes(t)?t:"summary";
-  document.querySelectorAll("section[data-tab]").forEach(x=>x.hidden=x.dataset.tab!==tab);
+  document.querySelectorAll("section[data-tab]").forEach(x=>x.hidden=x.dataset.tab!==tab||(x.dataset.sub&&x.dataset.sub!==sub));
+  document.querySelectorAll(".subnav button").forEach(b=>b.classList.toggle("on",b.dataset.sub===sub));
+  $("sub-meta").textContent=sub==="perf"?"реклама, лиды, записи, креативы":"рилсы, сторис, охват, контент-план";
+  try{localStorage.setItem("ps_sub",sub)}catch(e){}
   document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("on",b.dataset.tab===tab));
-  try{if(location.hash!=="#"+tab)history.replaceState(null,"","#"+tab)}catch(e){}
+  try{const h=tab==="marketing"?(sub==="content"?"content":"performance"):tab;if(location.hash!=="#"+h)history.replaceState(null,"","#"+h)}catch(e){}
   if(!PAY)return;
   if(tab==="marketing"){renderLeadsChart();renderRecChart();renderTaskChart();renderContentChart()}
   if(tab==="sales")renderSales();
   if(tab==="summary")renderSummary();
 }
+document.querySelectorAll(".subnav button").forEach(b=>b.addEventListener("click",()=>{sub=b.dataset.sub;showTab("marketing")}));
 document.querySelectorAll("#tabs button").forEach(b=>b.addEventListener("click",()=>showTab(b.dataset.tab)));
 window.addEventListener("hashchange",()=>showTab(location.hash.slice(1)));
 document.querySelectorAll("#sum-seg button").forEach(b=>b.addEventListener("click",()=>{sumMode=b.dataset.v;sumKey=null;
@@ -804,10 +852,13 @@ function renderSummary(){
     ["Воронка"],
     {k:"Лиды",p:PL.leads,f:F.leads},{k:"Записи на ПУ",p:PL.records,f:F.records},{k:"Проведено ПУ",p:PL.held,f:F.held},
     {k:"Лид → запись",p:dv(PL.records,PL.leads),f:dv(F.records,F.leads),fm:pct},{k:"Запись → явка",p:dv(PL.held,PL.records),f:dv(F.held,F.records),fm:pct},{k:"Явка → продажа",p:dv(PL.sales,PL.held),f:dv(F.sales,F.held),fm:pct},
-    ["Маркетинг"],
+    ["Performance-маркетинг"],
     {k:"Бюджет рекламы",p:PL.budget,f:F.budget,fm:v=>"$"+fmt(v),neutral:true},{k:"CPL (цена лида)",p:dv(PL.budget,PL.leads),f:dv(F.budget,F.leads),fm:v=>"$"+fmt(v,2),inv:true},
     {k:"Стоимость продажи",p:dv(PL.budget,PL.sales),f:dv(F.budget,F.sales),fm:v=>"$"+fmt(v,0),inv:true},
-    {k:"Рилсы",p:reelPlan,f:F.mktDays?F.reels:null},{k:"Новые креативы",p:adsPlan,f:F.mktDays?F.newads:null},
+    {k:"Новые креативы",p:adsPlan,f:F.mktDays?F.newads:null},
+    ["Контент-маркетинг"],
+    {k:"Рилсы",p:reelPlan,f:F.mktDays?F.reels:null},
+    ["Маркетолог"],
     {k:"Задачи маркетолога",p:0.8,f:F.tasks,fm:pct}];
   const t=$("sum-table");t.textContent="";
   const th=document.createElement("thead"),tr=document.createElement("tr");["Показатель","План","Факт","Выполнение","Отклонение"].forEach(h=>tr.appendChild(el("th",null,h)));th.appendChild(tr);t.appendChild(th);
@@ -969,7 +1020,7 @@ function renderPlan(){
 $("plan-week").addEventListener("change",e=>{planWeek=e.target.value;renderPlan()});
 $("plan-save").addEventListener("click",()=>{
   const text=$("plan-text").value.trim(),link=$("plan-link").value.trim();
-  if(!text&&!link){$("plan-saved").textContent="Вставьте план или ссылку.";return}
+  if(!text&&!link&&!content[planWeek+"|"+proj]){$("plan-saved").textContent="Вставьте план или ссылку.";return}
   const k=planWeek+"|"+proj,ts=new Date(Date.now()+5*3600e3).toISOString().slice(0,19);
   content[k]={week:planWeek,proj,text,link,updated:ts};
   $("plan-saved").textContent="Сохраняю…";
