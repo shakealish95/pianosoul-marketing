@@ -533,7 +533,7 @@ function renderTiles(){
   const prevName=len===1?"к предыдущему дню":"к прошлым "+len+" дн.";
   const title=len===1?(ddmm(to)+(to===astanaToday()?" (сегодня)":"")):("За "+len+" дней: "+ddmm(from)+"–"+ddmm(to));
   $("kpi-title").textContent=title;$("kpi-c-title").textContent=title;
-  if(!A.length){[P,C].forEach(x=>{const p=document.createElement("p");p.className="meta";p.textContent=to>daily[daily.length-1].date?"Данных за этот день ещё нет: они обновляются вечером в 21:22.":"Нет данных за этот период.";$(x.id).appendChild(p)});return}
+  if(!A.length){[P,C].forEach(x=>{const p=document.createElement("p");p.className="meta";p.textContent=to>daily[daily.length-1].date?"Данных за этот день ещё нет: цифры за сегодня появятся в 21:30.":"Нет данных за этот период.";$(x.id).appendChild(p)});return}
   const m=(rows,f,t)=>{const s=sum(rows,"spend"),lt=rows.reduce((a,r)=>a+leadsT(r),0),rec=sum(rows,"rec"),sale=sum(rows,"sale"),R=reelsIn(f,t);
     return {spend:s,lt,cpl:div(s,lt),rec,cpr:div(s,rec),came:sum(rows,"came"),sale,cps:div(s,sale),newads:sum(rows,"new_ads"),
       reels:sum(rows,"reels"),stories:sum(rows,"stories"),reach:sum(rows,"reach"),fol:sum(rows,"followers"),lo:sum(rows,"leads_org"),
